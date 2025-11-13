@@ -11,7 +11,7 @@ interface ImageDisplayProps {
   countdown: number | null;
 }
 
-const ImageDisplay: React.FC<ImageDisplayProps> = ({ imageUrl, loading, error, selectedSize, onClearImage, countdown }) => {
+const ImageDisplay: React.FC<ImageDisplayProps> = React.memo(({ imageUrl, loading, error, selectedSize, onClearImage, countdown }) => {
   const aspectRatioClass = selectedSize === 'YouTube (16:9)' ? 'aspect-video' : 'aspect-square';
 
   const handleDownload = () => {
@@ -40,7 +40,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({ imageUrl, loading, error, s
            )}
         </div>
       )}
-      {error && (
+      {error && !loading && (
         <div className="flex flex-col items-center justify-center text-red-400 text-center p-4">
           <AlertTriangleIcon />
           <p className="mt-4 font-semibold text-lg">Oops! Algo deu errado.</p>
@@ -83,6 +83,6 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({ imageUrl, loading, error, s
       `}</style>
     </div>
   );
-};
+});
 
 export default ImageDisplay;

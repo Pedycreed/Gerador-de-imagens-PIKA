@@ -2,9 +2,10 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import PromptInput from './components/PromptInput';
 import ImageDisplay from './components/ImageDisplay';
 import PromptSuggestions from './components/PromptSuggestions';
-import { generateImage, ModelId } from './services/geminiService';
+import { generateImage, ModelId, MODELS } from './services/geminiService';
 import { GalleryIcon, GithubIcon, PikaIcon } from './components/icons';
 import GalleryModal from './components/GalleryModal';
+import DragDropOverlay from './components/DragDropOverlay';
 
 export type ImageSize = '256x256' | '512x512' | '1024x1024' | 'YouTube (16:9)';
 
@@ -34,6 +35,8 @@ const App: React.FC = () => {
   const [isGalleryOpen, setGalleryOpen] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const timerRef = useRef<number | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const dragCounter = useRef(0);
 
 
   // Load gallery from localStorage on initial render
@@ -71,6 +74,9 @@ const App: React.FC = () => {
     };
   }, []);
 
+  const handleClearUpload = useCallback(() => {
+    setUploadedImage(null);
+  }, []);
 
   const handleGenerateImage = useCallback(async () => {
     if ((!prompt.trim() && !uploadedImage) || loading) return;
@@ -111,8 +117,8 @@ const App: React.FC = () => {
       };
       setGalleryImages(prev => [newImage, ...prev]);
 
-      setUploadedImage(null); // Reset after successful generation
-      setPrompt(''); // Clear prompt after generation
+      // Do not clear the prompt, so user can iterate
+      setUploadedImage(null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
       setError(`Failed to generate image. ${errorMessage}`);
@@ -129,113 +135,153 @@ const App: React.FC = () => {
     }
   }, [prompt, loading, selectedSize, uploadedImage, selectedModel]);
 
-  const handleImageUpload = (file: File) => {
+  const handleImageUpload = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) {
-      setError('Por favor, selecione um arquivo de imagem válido.');
+      setError('Please upload a valid image file (PNG, JPEG, WEBP).');
       return;
     }
-    setError(null);
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      const base64String = result.split(',')[1];
-      if (base64String) {
-        setUploadedImage({ base64: base64String, mimeType: file.type });
-        setImageUrl(result); 
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(',')[1];
+      setUploadedImage({
+        base64,
+        mimeType: file.type,
+      });
+      setError(null);
+      setImageUrl(null); // Clear any existing generated image
+      // Switch to an editable model if a non-editable one is selected
+      if (!MODELS[selectedModel].capabilities.edit) {
+        setSelectedModel('gemini-2.5-flash-image');
       }
     };
     reader.onerror = () => {
-      setError('Falha ao ler o arquivo de imagem.');
+      setError('Failed to read the image file.');
+      console.error('FileReader error');
     };
     reader.readAsDataURL(file);
-  };
+  }, [selectedModel]);
 
-  const handleClearUpload = useCallback(() => {
-    setUploadedImage(null);
-    setImageUrl(null);
-  }, []);
 
-  const handleClearImage = useCallback(() => {
+  const handleClearImage = () => {
     setImageUrl(null);
     setError(null);
-  }, []);
+  };
+
+  const handleDeleteFromGallery = (id: string) => {
+    setGalleryImages(prev => prev.filter(img => img.id !== id));
+  };
   
-  const handleDeleteFromGallery = useCallback((id: string) => {
-    setGalleryImages(prev => prev.filter(image => image.id !== id));
+  // Drag and Drop handlers
+  const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDraggingOver(true);
+    }
   }, []);
 
-  const handleSelectPrompt = useCallback((selectedPrompt: string) => {
-    setPrompt(selectedPrompt);
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDraggingOver(false);
+    }
   }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    dragCounter.current = 0;
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      if (uploadedImage || loading) return; // Don't allow drop if already busy/has image
+      handleImageUpload(e.dataTransfer.files[0]);
+      e.dataTransfer.clearData();
+    }
+  }, [uploadedImage, loading, handleImageUpload]);
+
+  const showSuggestions = !loading && !error && !imageUrl && !uploadedImage;
 
   return (
-    <>
-      <div className="min-h-screen flex flex-col bg-gray-800 text-white selection:bg-purple-500 selection:text-white">
-        <header className="flex items-center justify-between p-4 border-b border-gray-700/50 flex-shrink-0">
-          <div className="flex items-center">
+    <div 
+      className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4 sm:p-6 md:p-8 gap-4 relative transition-colors duration-300"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      <DragDropOverlay isVisible={isDraggingOver} />
+      
+      <header className="w-full max-w-6xl flex justify-between items-center">
+        <div className="flex items-center gap-2">
             <PikaIcon />
-            <h1 className="text-xl font-semibold ml-2 text-gray-100">Gerador de Imagem PIKA</h1>
-          </div>
-          <button 
-            onClick={() => setGalleryOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-gray-700/80 hover:bg-gray-700 rounded-lg text-sm font-semibold transition-colors"
-            aria-label="Abrir galeria"
-          >
-            <GalleryIcon />
-            Galeria
-          </button>
-        </header>
-
-        <main className="flex-grow w-full max-w-4xl mx-auto p-4 flex flex-col items-center justify-center">
-          {(!imageUrl && !loading && !error) ? (
-            <div className="flex flex-col items-center justify-center h-full text-center w-full">
-              <div className="p-4 rounded-lg w-full max-w-2xl">
-                <PromptSuggestions onSelectPrompt={handleSelectPrompt} />
-              </div>
-            </div>
-          ) : (
-            <ImageDisplay
-              imageUrl={imageUrl}
-              loading={loading}
-              error={error}
-              selectedSize={selectedSize}
-              onClearImage={handleClearImage}
-              countdown={countdown}
-            />
-          )}
-        </main>
-
-        <footer className="w-full sticky bottom-0 bg-gray-800 border-t border-gray-700/50">
-          <div className="max-w-3xl mx-auto p-4">
-            <PromptInput
-              prompt={prompt}
-              setPrompt={setPrompt}
-              onGenerate={handleGenerateImage}
-              loading={loading}
-              selectedSize={selectedSize}
-              onSizeChange={setSelectedSize}
-              uploadedImage={uploadedImage}
-              onImageUpload={handleImageUpload}
-              onClearUpload={handleClearUpload}
-              selectedModel={selectedModel}
-              onModelChange={setSelectedModel}
-            />
-            <div className="text-center text-gray-600 text-xs mt-2 flex justify-center items-center space-x-2">
-              <a href="https://github.com/Pedycreed" target="_blank" rel="noopener noreferrer" className="hover:text-purple-400 transition-colors">
+            <h1 className="text-xl sm:text-2xl font-bold">Gerador de Imagem PIKA</h1>
+        </div>
+        <div className="flex items-center gap-2">
+            <button
+              onClick={() => setGalleryOpen(true)}
+              className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-700 transition-colors"
+              aria-label="Abrir galeria"
+            >
+              <GalleryIcon />
+            </button>
+            <a href="https://github.com/google/aistudio-apps" target="_blank" rel="noopener noreferrer" className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-700 transition-colors" aria-label="Ver no GitHub">
                 <GithubIcon />
-              </a>
-              <span>Powered by Jhonatan Salgueiro</span>
-            </div>
+            </a>
+        </div>
+      </header>
+      
+      <main className="flex flex-col items-center justify-center flex-grow w-full max-w-6xl">
+        <div className={`transition-opacity duration-500 w-full flex flex-col items-center ${showSuggestions ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+          <div className="w-full max-w-3xl">
+            <PromptSuggestions onSelectPrompt={(p) => {
+              setPrompt(p);
+            }} />
           </div>
-        </footer>
-      </div>
+        </div>
+
+        <div className={`transition-opacity duration-500 w-full flex flex-col items-center ${!showSuggestions ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+           <ImageDisplay
+            imageUrl={imageUrl || (uploadedImage ? `data:${uploadedImage.mimeType};base64,${uploadedImage.base64}` : null)}
+            loading={loading}
+            error={error}
+            selectedSize={selectedSize}
+            onClearImage={handleClearImage}
+            countdown={countdown}
+          />
+        </div>
+      </main>
+
+      <footer className="w-full flex justify-center sticky bottom-4">
+        <PromptInput
+          prompt={prompt}
+          setPrompt={setPrompt}
+          onGenerate={handleGenerateImage}
+          loading={loading}
+          selectedSize={selectedSize}
+          onSizeChange={setSelectedSize}
+          uploadedImage={uploadedImage}
+          onImageUpload={handleImageUpload}
+          onClearUpload={handleClearUpload}
+          selectedModel={selectedModel}
+          onModelChange={setSelectedModel}
+        />
+      </footer>
+      
       <GalleryModal
         isOpen={isGalleryOpen}
         onClose={() => setGalleryOpen(false)}
         images={galleryImages}
         onDelete={handleDeleteFromGallery}
       />
-    </>
+    </div>
   );
 };
 

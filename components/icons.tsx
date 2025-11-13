@@ -81,7 +81,7 @@ export const GithubIcon: React.FC = () => (
     </svg>
 );
 
-export const RefreshIcon: React.FC = () => (
+export const RefreshIcon: React.FC<{className?: string}> = ({className}) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="16"
@@ -92,6 +92,7 @@ export const RefreshIcon: React.FC = () => (
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
+    className={className}
   >
     <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
     <path d="M21 3v5h-5" />
@@ -313,5 +314,24 @@ export const TranslateIcon: React.FC<{ className?: string }> = ({ className }) =
       <path d="M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z" />
       <line x1="18" x2="12" y1="9" y2="9" />
       <line x1="16" x2="14" y1="13" y2="13" />
+    </svg>
+);
+
+export const UploadCloudIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+    >
+        <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+        <path d="M12 12v9" />
+        <path d="m16 16-4-4-4 4" />
     </svg>
 );

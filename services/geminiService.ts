@@ -86,7 +86,7 @@ const generateWithNanoBanana = async (prompt: string, size: ImageSize, uploadedI
 const generateWithImagen4 = async (prompt: string, size: ImageSize): Promise<string> => {
     const aspectRatio = size === 'YouTube (16:9)' ? '16:9' : '1:1';
 
-    // FIX: Object literal may only specify known properties, and 'safetySettings' does not exist in type 'GenerateImagesParameters'. Moved safetySettings into the config object.
+    // FIX: Moved safetySettings outside of the config object. For generateImages, it's a top-level parameter.
     const response = await ai.models.generateImages({
         model: 'imagen-4.0-generate-001',
         prompt: prompt,
@@ -94,8 +94,8 @@ const generateWithImagen4 = async (prompt: string, size: ImageSize): Promise<str
             numberOfImages: 1,
             outputMimeType: 'image/png',
             aspectRatio: aspectRatio,
-            safetySettings,
         },
+        safetySettings,
     });
 
     const base64ImageBytes = response.generatedImages[0]?.image?.imageBytes;
