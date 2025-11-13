@@ -65,7 +65,7 @@ const generateWithNanoBanana = async (prompt: string, size: ImageSize, uploadedI
         throw new Error("Cannot generate image without a prompt or an uploaded image.");
     }
 
-    // FIX: `safetySettings` must be part of `config`.
+    // FIX: Object literal may only specify known properties, and 'safetySettings' does not exist in type 'GenerateContentParameters'. Moved safetySettings into the config object.
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: { parts },
@@ -86,7 +86,7 @@ const generateWithNanoBanana = async (prompt: string, size: ImageSize, uploadedI
 const generateWithImagen4 = async (prompt: string, size: ImageSize): Promise<string> => {
     const aspectRatio = size === 'YouTube (16:9)' ? '16:9' : '1:1';
 
-    // FIX: `safetySettings` must be part of `config`.
+    // FIX: Object literal may only specify known properties, and 'safetySettings' does not exist in type 'GenerateImagesParameters'. Moved safetySettings into the config object.
     const response = await ai.models.generateImages({
         model: 'imagen-4.0-generate-001',
         prompt: prompt,
@@ -131,6 +131,7 @@ export const generateImage = async (prompt: string, size: ImageSize, uploadedIma
 
 export const refinePrompt = async (prompt: string): Promise<string[]> => {
   try {
+    // FIX: Object literal may only specify known properties, and 'safetySettings' does not exist in type 'GenerateContentParameters'. Moved safetySettings into the config object.
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `Based on the following user prompt, provide 3 more descriptive and creative alternatives that would generate a better image. User Prompt: "${prompt}"`,
@@ -169,5 +170,32 @@ export const refinePrompt = async (prompt: string): Promise<string[]> => {
         throw new Error(`API Error (Refine): ${error.message}`);
     }
     throw new Error("An unexpected error occurred while refining the prompt.");
+  }
+};
+
+export const translateToEnglish = async (prompt: string): Promise<string> => {
+  if (!prompt.trim()) {
+    return prompt;
+  }
+
+  try {
+    // FIX: Object literal may only specify known properties, and 'safetySettings' does not exist in type 'GenerateContentParameters'. Moved safetySettings into the config object.
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+         systemInstruction: "You are a highly efficient translation engine. Translate the user's text to English. Do not add any extra text, explanations, or labels like 'English:'. Only return the translated text itself.",
+         safetySettings,
+      },
+    });
+    
+    return response.text.trim();
+
+  } catch (error) {
+    console.error(`Error translating prompt:`, error);
+    if (error instanceof Error) {
+        throw new Error(`API Error (Translate): ${error.message}`);
+    }
+    throw new Error("An unexpected error occurred while translating the prompt.");
   }
 };

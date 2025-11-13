@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { SendIcon, PaperclipIcon, ResizeIcon, XIcon, CpuChipIcon, SparklesIcon } from './icons';
+import { SendIcon, PaperclipIcon, ResizeIcon, XIcon, CpuChipIcon, SparklesIcon, TranslateIcon } from './icons';
 import { ImageSize, UploadedImage } from '../App';
 import SizeSelector from './SizeSelector';
 import ImageUpload from './ImageUpload';
 import ModelSelector from './ModelSelector';
-import { ModelId, MODELS, refinePrompt } from '../services/geminiService';
+import { ModelId, MODELS, refinePrompt, translateToEnglish } from '../services/geminiService';
 
 interface PromptInputProps {
   prompt: string;
@@ -28,6 +28,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
   const [isSizeSelectorOpen, setSizeSelectorOpen] = useState(false);
   const [isModelSelectorOpen, setModelSelectorOpen] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
   const [refineError, setRefineError] = useState<string | null>(null);
   const [refinedSuggestions, setRefinedSuggestions] = useState<string[]>([]);
   
@@ -53,6 +54,20 @@ const PromptInput: React.FC<PromptInputProps> = ({
         setRefineError(errorMessage);
     } finally {
         setIsRefining(false);
+    }
+  };
+
+  const handleTranslate = async () => {
+    if (!prompt.trim() || isTranslating || loading) return;
+    setIsTranslating(true);
+    try {
+      const translatedPrompt = await translateToEnglish(prompt);
+      setPrompt(translatedPrompt);
+    } catch (err) {
+      console.error("Translation failed", err);
+      // Optionally, set an error state to show the user
+    } finally {
+      setIsTranslating(false);
     }
   };
 
@@ -145,11 +160,20 @@ const PromptInput: React.FC<PromptInputProps> = ({
           <div className="flex items-end self-end gap-1 relative">
              <button
                 onClick={handleRefine}
-                disabled={loading || isRefining || !prompt.trim()}
+                disabled={loading || isRefining || isTranslating || !prompt.trim()}
                 className="flex items-center justify-center h-10 w-10 text-gray-400 hover:text-purple-400 disabled:text-gray-600 disabled:cursor-not-allowed rounded-lg hover:bg-gray-600 transition-colors"
                 title="Refinar Prompt"
               >
                 <SparklesIcon className={`w-5 h-5 ${isRefining ? 'animate-spin' : ''}`} />
+             </button>
+
+             <button
+                onClick={handleTranslate}
+                disabled={loading || isRefining || isTranslating || !prompt.trim()}
+                className="flex items-center justify-center h-10 w-10 text-gray-400 hover:text-blue-400 disabled:text-gray-600 disabled:cursor-not-allowed rounded-lg hover:bg-gray-600 transition-colors"
+                title="Traduzir para Inglês"
+              >
+                <TranslateIcon className={`w-5 h-5 ${isTranslating ? 'animate-spin' : ''}`} />
              </button>
 
             {(refinedSuggestions.length > 0 || refineError) && (
